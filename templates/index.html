@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>sgcarmart Price Valuer</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --fg: #1a1a1a;
+    --bg: #ffffff;
+    --muted: #6b7280;
+    --border: #d1d5db;
+    --accent: #2563eb;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --fg: #e5e7eb;
+      --bg: #111318;
+      --muted: #9ca3af;
+      --border: #3a3f4a;
+      --accent: #60a5fa;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--fg);
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 2.5rem 1.25rem 4rem;
+    line-height: 1.5;
+  }
+  h1 { font-size: 1.4rem; margin-bottom: 0.25rem; }
+  p.sub { color: var(--muted); margin-top: 0; margin-bottom: 2rem; font-size: 0.95rem; }
+  form { display: flex; gap: 0.5rem; }
+  input[type=text] {
+    flex: 1;
+    padding: 0.65rem 0.8rem;
+    font-size: 1rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
+    color: var(--fg);
+  }
+  button {
+    padding: 0.65rem 1.2rem;
+    font-size: 1rem;
+    border: none;
+    border-radius: 8px;
+    background: var(--accent);
+    color: white;
+    cursor: pointer;
+  }
+  button:disabled { opacity: 0.6; cursor: default; }
+  .examples { margin-top: 0.6rem; font-size: 0.85rem; color: var(--muted); }
+  #result {
+    margin-top: 2rem;
+    white-space: pre-wrap;
+    font-size: 1rem;
+    padding: 1rem;
+    border-radius: 8px;
+    display: none;
+  }
+  #result.answer { background: rgba(37, 99, 235, 0.08); border: 1px solid var(--border); }
+  #result.error { background: rgba(220, 38, 38, 0.08); border: 1px solid #dc2626; color: #dc2626; }
+  #status { margin-top: 1rem; color: var(--muted); font-size: 0.9rem; display: none; }
+</style>
+</head>
+<body>
+  <h1>sgcarmart Price Valuer</h1>
+  <p class="sub">
+    Type a vehicle in plain English — make, model, year, and optionally a
+    COE requirement — and get a price range estimated from real sgcarmart
+    listings.
+  </p>
+
+  <form id="query-form">
+    <input type="text" id="query" name="query" placeholder="2019 Honda Vezel with at least 3 years COE left" autocomplete="off" required>
+    <button type="submit" id="submit-btn">Search</button>
+  </form>
+  <div class="examples">e.g. "Toyota Corolla Altis 2017" or "Honda Civic, 2+ years COE left"</div>
+
+  <div id="status">Searching sgcarmart and asking the local model — this can take up to a minute…</div>
+  <div id="result"></div>
+
+  <script>
+    const form = document.getElementById("query-form");
+    const input = document.getElementById("query");
+    const btn = document.getElementById("submit-btn");
+    const status = document.getElementById("status");
+    const result = document.getElementById("result");
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const query = input.value.trim();
+      if (!query) return;
+
+      btn.disabled = true;
+      status.style.display = "block";
+      result.style.display = "none";
+
+      try {
+        const resp = await fetch("/api/query", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ query }),
+        });
+        const data = await resp.json();
+
+        if (resp.ok) {
+          result.textContent = data.answer;
+          result.className = "answer";
+        } else {
+          result.textContent = data.error || "Something went wrong.";
+          result.className = "error";
+        }
+      } catch (err) {
+        result.textContent = "Couldn't reach the server. Please try again.";
+        result.className = "error";
+      } finally {
+        status.style.display = "none";
+        result.style.display = "block";
+        btn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,7 @@
+requests>=2.31
+beautifulsoup4>=4.12
+lxml>=5.0
+playwright>=1.40          # required — config.USE_PLAYWRIGHT=True by default (sgcarmart is JS-rendered)
+flask>=3.0
+flask-limiter>=3.5
+gunicorn>=21.2             # Linux-only; used inside the Docker container, not local Windows dev

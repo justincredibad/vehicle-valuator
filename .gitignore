@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+listings_cache.db
+.claude/
+.env
+venv/
+.venv/

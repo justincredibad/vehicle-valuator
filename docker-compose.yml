@@ -1,0 +1,26 @@
+services:
+  ollama:
+    image: ollama/ollama:latest
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: unless-stopped
+    expose:
+      - "11434"     # internal only — not published to the host
+
+  web:
+    build: .
+    depends_on:
+      - ollama
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
+      - OLLAMA_MODEL=qwen2.5:14b
+      - DB_PATH=/app/data/listings_cache.db
+    volumes:
+      - db_data:/app/data
+    ports:
+      - "80:8000"   # plain HTTP on the bare server IP, no TLS yet
+    restart: unless-stopped
+
+volumes:
+  ollama_data:
+  db_data:
