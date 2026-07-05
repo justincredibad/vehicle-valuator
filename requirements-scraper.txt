@@ -1,0 +1,8 @@
+# GitHub Actions scraper worker only (scrape_worker.py) — installed by
+# .github/workflows/scrape.yml, NOT by Streamlit Cloud (which uses the root
+# requirements.txt and never runs the scraper — see README.md).
+requests>=2.31
+beautifulsoup4>=4.12
+lxml>=5.0
+playwright>=1.40
+supabase>=2.7

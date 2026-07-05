@@ -1,7 +1,11 @@
 requests>=2.31
 beautifulsoup4>=4.12
 lxml>=5.0
-playwright>=1.40          # required — config.USE_PLAYWRIGHT=True by default (sgcarmart is JS-rendered)
+playwright>=1.40          # required for the local path — config.USE_PLAYWRIGHT=True by default (sgcarmart is JS-rendered); unused but harmless on Streamlit Cloud
 flask>=3.0
 flask-limiter>=3.5
 gunicorn>=21.2             # Linux-only; used inside the Docker container, not local Windows dev
+
+# Streamlit Cloud deployment (streamlit_app.py) — see README.md "Cloud deployment"
+streamlit>=1.38
+supabase>=2.7

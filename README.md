@@ -187,18 +187,102 @@ Notes on the deployed setup:
 
 ---
 
+## Cloud deployment (free — Streamlit Community Cloud)
+
+An alternative, fully free deployment that needs **no server or desktop kept
+running**: [Streamlit Community Cloud](https://streamlit.io/cloud) hosts the
+UI, [Google Gemini's free tier](https://ai.google.dev/gemini-api/docs) replaces
+local Ollama, and [Supabase](https://supabase.com) (Postgres) replaces local
+SQLite as a cache shared between Streamlit and a scheduled
+[GitHub Actions](https://github.com/features/actions) job that does the actual
+scraping — Streamlit Cloud's free tier (1GB RAM, no persistent processes)
+can't run a self-hosted LLM or headless Chrome reliably, so those stay
+outside it.
+
+```
+User  ─►  streamlit_app.py  ─►  agent_gemini.py  ─►  Gemini API (free tier)
+                                       │
+                                       ▼
+                              tools_cloud.py
+                                       │
+                          ┌────────────┴────────────┐
+                          ▼                          ▼
+                 db_supabase.py               (cache miss →
+                 (Supabase Postgres)         enqueue in search_requests)
+                                                       │
+                                                       ▼
+                                  GitHub Actions (every ~15 min)
+                                  runs scrape_worker.py ─► scraper.py (unmodified)
+                                  ─► writes back to Supabase
+```
+
+A cache miss doesn't scrape inline here — it queues the search and tells the
+user to check back shortly once the next scheduled GitHub Actions run has
+scraped it. This is the one real behavioral difference from the local path.
+
+### One-time setup
+
+1. **Supabase**: create a free project at supabase.com, then run
+   `supabase/migrations/001_init.sql` in its SQL Editor. Copy the project's
+   URL and `service_role` key (Project Settings → API).
+2. **Gemini**: create a free API key at
+   [aistudio.google.com](https://aistudio.google.com/apikey), on a Google
+   Cloud project that has **never had billing enabled** (enabling billing
+   later removes the free tier for that project permanently). Note: on the
+   free tier, Google's terms permit using your queries to improve their
+   models — worth knowing before pointing real users at it.
+3. **Streamlit Cloud**: go to [share.streamlit.io](https://share.streamlit.io),
+   sign in with GitHub, "New app" → this repo → branch `main` → main file
+   `streamlit_app.py`. In that app's Settings → Secrets, paste:
+   ```toml
+   SUPABASE_URL = "https://xxxx.supabase.co"
+   SUPABASE_SERVICE_ROLE_KEY = "eyJ..."
+   GEMINI_API_KEY = "AIza..."
+   ```
+4. **GitHub Actions**: in this repo's Settings → Secrets and variables →
+   Actions, add `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` (same values
+   as step 1 — the worker never calls Gemini, so no Gemini key needed here).
+
+### Notes
+
+- Rate limiting here is **global, not per-visitor** (Streamlit Cloud doesn't
+  expose caller IP as cleanly as Flask) — sized to stay under Gemini's shared
+  free-tier ceiling (15 requests/min, 1,500/day). One heavy user can briefly
+  throttle everyone else; acceptable at personal/demo scale, not for real
+  concurrent traffic.
+- Free Supabase projects auto-pause after 7 days with no DB traffic — the
+  scheduled GitHub Actions run doubles as a keep-alive ping.
+- The scrape schedule (`.github/workflows/scrape.yml`, every 15 min by
+  default) can be triggered manually via its `workflow_dispatch` trigger to
+  pre-warm a specific search before a demo, instead of waiting for the next
+  scheduled run.
+- This cloud path and the local path (below) are independent — `config.py`,
+  `scraper.py`, and `stats.py` are shared unmodified between them, but
+  `tools.py`/`agent.py`/`db.py`/`webapp.py` (local) and
+  `tools_cloud.py`/`agent_gemini.py`/`db_supabase.py`/`streamlit_app.py`
+  (cloud) are separate, parallel implementations — see the file guide below.
+
+---
+
 ## File guide
 
 | File | Purpose | Uses LLM? |
 |---|---|---|
 | `config.py` | All selectors, URLs, model settings — edit here first | No |
 | `scraper.py` | Fetches & parses sgcarmart listing pages | No |
-| `db.py` | SQLite cache of scraped listings (24h TTL by default) | No |
 | `stats.py` | Outlier filtering, median, ±10% buffer — the actual pricing math | No |
+| **Local path** | | |
+| `db.py` | SQLite cache of scraped listings (24h TTL by default) | No |
 | `tools.py` | Wraps scraper+stats as a tool schema the LLM can call | No |
 | `agent.py` | Ollama chat loop: parses query, calls tools, writes final answer | **Yes (local only)** |
 | `main.py` | CLI entry point | — |
 | `webapp.py` | Flask web front-end (same pipeline as `main.py`, over HTTP) | — |
+| **Cloud path** (Streamlit) | | |
+| `db_supabase.py` | Supabase-backed cache + scrape-request queue, shared with the GitHub Actions worker | No |
+| `tools_cloud.py` | Cloud variant of `tools.py` — same logic, but enqueues a scrape instead of running one inline | No |
+| `agent_gemini.py` | Same role as `agent.py`, calls Gemini's free API instead of local Ollama | **Yes (cloud)** |
+| `streamlit_app.py` | Streamlit Cloud entry point (chat UI) | — |
+| `scrape_worker.py` | Runs in GitHub Actions: drains the queue, scrapes with the unmodified `scraper.py`, writes back to Supabase | No |
 
 ## Testing the non-LLM parts without Ollama running
 

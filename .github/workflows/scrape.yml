@@ -1,0 +1,28 @@
+name: Scrape Worker
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"   # every 15 min; tighten later if needed — unlimited free minutes on this public repo
+  workflow_dispatch: {}       # manual trigger, useful to pre-warm a query before a demo
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements-scraper.txt
+          playwright install --with-deps chromium
+
+      - name: Drain pending search requests
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: python scrape_worker.py

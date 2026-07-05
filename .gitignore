@@ -5,3 +5,4 @@ listings_cache.db
 .env
 venv/
 .venv/
+.streamlit/secrets.toml
