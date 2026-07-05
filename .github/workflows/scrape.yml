@@ -1,8 +1,13 @@
 name: Scrape Worker
 
 on:
-  schedule:
-    - cron: "*/15 * * * *"   # every 15 min; tighten later if needed — unlimited free minutes on this public repo
+  # Schedule disabled until Supabase/GitHub secrets are set up (see README's
+  # "Cloud deployment" section) — it was failing every 15 min without them
+  # and spamming GitHub's failure-notification emails. Re-enable by
+  # uncommenting the `schedule:` block below once SUPABASE_URL and
+  # SUPABASE_SERVICE_ROLE_KEY are added as repo secrets.
+  # schedule:
+  #   - cron: "*/15 * * * *"   # every 15 min; tighten later if needed — unlimited free minutes on this public repo
   workflow_dispatch: {}       # manual trigger, useful to pre-warm a query before a demo
 
 jobs:
